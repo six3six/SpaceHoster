@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/docker/docker/client"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -13,12 +14,15 @@ import (
 )
 
 var database *mongo.Database
+var dockerClient *client.Client
 
 func main() {
-
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	client := connectDB(ctx)
-	database = client.Database("spacehoster")
+
+	dockerClient = connectDocker(ctx)
+
+	mongoClient := connectDB(ctx)
+	database = mongoClient.Database("spacehoster")
 
 	database.Collection("tes")
 	r := gin.Default()
@@ -36,6 +40,8 @@ func main() {
 	r.POST("/register", registerUser)
 	r.GET("/list_user", listUsers)
 
+	r.GET("/new_container", createNewContainer)
+
 	_ = r.Run()
 }
 
@@ -44,11 +50,20 @@ func connectDB(ctx context.Context) *mongo.Client {
 		url := "mongodb://" + os.Getenv("MONGO_INITDB_ROOT_USERNAME") + ":" + os.Getenv("MONGO_INITDB_ROOT_PASSWORD") + "@mongodb:27017"
 		println("Connecting to ", url)
 
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(url))
+		mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(url))
 		if err != nil {
 			log.Print(err)
 		} else {
-			return client
+			return mongoClient
 		}
 	}
+}
+
+func connectDocker(ctx context.Context) *client.Client {
+
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		panic(err)
+	}
+	return cli
 }
