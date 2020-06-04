@@ -1,0 +1,28 @@
+version: "3"
+services:
+  api:
+    build: .
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - dev.env
+    ports:
+      - 8080:8080
+    depends_on:
+      - mongodb
+    networks:
+      - default
+
+  mongodb:
+    image: mongo
+    volumes:
+      - data:/data/db
+    env_file:
+      - dev.env
+    networks:
+      - default
+networks:
+  default:
+
+volumes:
+  data:
