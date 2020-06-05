@@ -1,0 +1,8 @@
+FROM ubuntu:latest
+
+RUN apt update
+RUN apt dist-upgrade -y
+RUN apt install snapd -y
+RUN snap install lxd
+
+
