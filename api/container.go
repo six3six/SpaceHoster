@@ -4,6 +4,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/go-connections/nat"
 	"github.com/gin-gonic/gin"
 	"log"
 )
@@ -37,9 +38,13 @@ func createNewContainer(c *gin.Context) {
 		c.JSON(500, gin.H{"context": "Container creation", "message": "Invalid name"})
 		return
 	}
+
+	hostConfig := container.HostConfig{}
+	hostConfig.PortBindings = nat.PortMap{"22/tcp": {nat.PortBinding{HostPort: "1022"}}}
+
 	resp, err := dockerClient.ContainerCreate(c, &container.Config{
 		Image: imageName,
-	}, &container.HostConfig{}, &network.NetworkingConfig{}, containerName)
+	}, &hostConfig, &network.NetworkingConfig{}, containerName)
 
 	if err != nil {
 		c.JSON(500, gin.H{"context": "Container creation", "message": err.Error()})
