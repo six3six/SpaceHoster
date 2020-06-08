@@ -1,12 +1,15 @@
 package main
 
 import (
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
+	"fmt"
+	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/bramvdbogaerde/go-scp/auth"
 	"github.com/gin-gonic/gin"
-	"log"
+	"golang.org/x/crypto/ssh"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 type Container struct {
@@ -18,43 +21,37 @@ type Container struct {
 }
 
 func createNewContainer(c *gin.Context) {
-	_, err := dockerClient.Ping(c)
+	// node := "spacex"
+	vmName := "test"
+	err := uploadConfigText("test", vmName)
 	if err != nil {
-		c.JSON(500, gin.H{"context": "Docker ping", "message": err.Error()})
-		log.Fatal("Docker can't be ping")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"context": "Config upload",
+			"message": err.Error(),
+		})
+		return
 	}
+	c.JSON(http.StatusOK, gin.H{"message": "ok"})
+}
 
-	imageName := "ubuntu"
-	imageUrl := "docker.io/library/" + imageName
+func uploadConfigText(content string, vmName string) error {
+	var err error
 
-	_, err = dockerClient.ImagePull(c, imageUrl, types.ImagePullOptions{})
+	clientConfig, err := auth.PrivateKey("root", filepath.Join(os.Getenv("KEYS_PATH"), "id_rsa"), ssh.InsecureIgnoreHostKey())
 	if err != nil {
-		c.JSON(500, gin.H{"context": "Image pull", "message": err.Error()})
-		return
+		return fmt.Errorf("Couldn't load ssh key %s", err.Error())
 	}
-
-	containerName, valid := c.GetQuery("name")
-	if !valid {
-		c.JSON(500, gin.H{"context": "Container creation", "message": "Invalid name"})
-		return
+	client := scp.NewClient(os.Getenv("PROXMOX_HOST")+":"+os.Getenv("PROXMOX_SSH_PORT"), &clientConfig)
+	err = client.Connect()
+	if err != nil {
+		return fmt.Errorf("Couldn't establish a connection to the remote server %s", err.Error())
 	}
+	defer client.Close()
 
-	hostConfig := container.HostConfig{}
-	hostConfig.PortBindings = nat.PortMap{"22/tcp": {nat.PortBinding{HostPort: "1022"}}}
-
-	resp, err := dockerClient.ContainerCreate(c, &container.Config{
-		Image: imageName,
-	}, &hostConfig, &network.NetworkingConfig{}, containerName)
+	err = client.CopyFile(strings.NewReader(content), fmt.Sprintf("%s/%s.yaml", os.Getenv("PROXMOX_CONFIG_URL"), vmName), "0655")
 
 	if err != nil {
-		c.JSON(500, gin.H{"context": "Container creation", "message": err.Error()})
-		return
+		return fmt.Errorf("Error while copying file %s", err.Error())
 	}
-
-	if err := dockerClient.ContainerStart(c, resp.ID, types.ContainerStartOptions{}); err != nil {
-		c.JSON(500, gin.H{"context": "Container start", "message": err.Error()})
-		return
-	}
-
-	log.Println("Launched ", containerName)
+	return nil
 }

@@ -2,8 +2,11 @@ version: "3"
 services:
   api:
     build: .
+    privileged: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./vmfs/tmp/:/tmp
+      - ../keys:/keys
     env_file:
       - dev.env
     ports:

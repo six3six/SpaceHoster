@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/docker/docker/client"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -15,11 +16,14 @@ import (
 
 var database *mongo.Database
 var dockerClient *client.Client
+var proxmoxClient *proxmox.Client
 
 func main() {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
 	dockerClient = connectDocker(ctx)
+
+	proxmoxClient = connectProxmox()
 
 	mongoClient := connectDB(ctx)
 	database = mongoClient.Database("spacehoster")
@@ -66,4 +70,25 @@ func connectDocker(ctx context.Context) *client.Client {
 		panic(err)
 	}
 	return cli
+}
+
+func connectProxmox() *proxmox.Client {
+
+	for {
+		url := "https://" + os.Getenv("PROXMOX_HOST") + ":" + os.Getenv("PROXMOX_API_PORT") + "/api2/json"
+
+		println("Connecting to ", url)
+		c, err := proxmox.NewClient(url, nil, nil)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		err = c.Login(os.Getenv("PROXMOX_USER"), os.Getenv("PROXMOX_PASSWORD"), "")
+		if err != nil {
+			log.Fatal(err)
+		} else {
+			return c
+		}
+
+	}
 }

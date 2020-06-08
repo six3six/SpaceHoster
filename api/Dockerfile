@@ -1,6 +1,6 @@
-FROM golang:latest
+FROM golang
 
-WORKDIR /go/src/api
+WORKDIR /api
 COPY go.mod go.mod
 COPY version.go .
 
