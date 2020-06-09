@@ -15,4 +15,5 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	go.mongodb.org/mongo-driver v1.3.4
 	golang.org/x/crypto v0.0.0-20190530122614-20be4c3c3ed5
+	gopkg.in/yaml.v2 v2.2.8
 )

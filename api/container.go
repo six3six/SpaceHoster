@@ -1,15 +1,10 @@
 package main
 
 import (
-	"fmt"
-	scp "github.com/bramvdbogaerde/go-scp"
-	"github.com/bramvdbogaerde/go-scp/auth"
+	"github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/ssh"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
+	"time"
 )
 
 type Container struct {
@@ -21,37 +16,66 @@ type Container struct {
 }
 
 func createNewContainer(c *gin.Context) {
-	// node := "spacex"
-	vmName := "test"
-	err := uploadConfigText("test", vmName)
+	vmName := "testvm"
+	vmNode := "spacex"
+	vmId := 401
+	user := "louis"
+	password := "password"
+
+	modelRef, err := proxmoxClient.GetVmRefByName("VM 9000")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"context": "Config upload",
+			"context": "Searching for model",
 			"message": err.Error(),
 		})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "ok"})
-}
 
-func uploadConfigText(content string, vmName string) error {
-	var err error
-
-	clientConfig, err := auth.PrivateKey("root", filepath.Join(os.Getenv("KEYS_PATH"), "id_rsa"), ssh.InsecureIgnoreHostKey())
-	if err != nil {
-		return fmt.Errorf("Couldn't load ssh key %s", err.Error())
+	vmParams := map[string]interface{}{
+		"newid":  vmId,
+		"name":   vmName,
+		"target": vmNode,
+		"full":   false,
 	}
-	client := scp.NewClient(os.Getenv("PROXMOX_HOST")+":"+os.Getenv("PROXMOX_SSH_PORT"), &clientConfig)
-	err = client.Connect()
+	c.JSON(http.StatusOK, vmParams)
+	exitCloneStatus, err := proxmoxClient.CloneQemuVm(modelRef, vmParams)
 	if err != nil {
-		return fmt.Errorf("Couldn't establish a connection to the remote server %s", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"context": "Cloning model",
+			"message": err.Error(),
+		})
+		return
 	}
-	defer client.Close()
 
-	err = client.CopyFile(strings.NewReader(content), fmt.Sprintf("%s/%s.yaml", os.Getenv("PROXMOX_CONFIG_URL"), vmName), "0655")
-
+	c.JSON(http.StatusOK, gin.H{"message": exitCloneStatus})
+	err = nil
+	var vmRef *proxmox.VmRef
+	for i := 0; i < 50; i++ {
+		vmRef, err = proxmoxClient.GetVmRefByName(vmName)
+		if err != nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 	if err != nil {
-		return fmt.Errorf("Error while copying file %s", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"context": "Searching cloned vm",
+			"message": err.Error(),
+		})
+		return
 	}
-	return nil
+	vmConfig := map[string]interface{}{
+		"ciuser":     user,
+		"cipassword": password,
+	}
+	exitConfigStatus, err := proxmoxClient.SetVmConfig(vmRef, vmConfig)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"context": "Configuring cloned vm",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": exitConfigStatus})
 }
