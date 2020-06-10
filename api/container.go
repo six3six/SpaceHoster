@@ -3,6 +3,8 @@ package main
 import (
 	"github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"net/http"
 	"time"
 )
@@ -15,12 +17,52 @@ type Container struct {
 	PublicName string
 }
 
-func createNewContainer(c *gin.Context) {
+func CreateNewVM(c *gin.Context) {
+	vmParamsCollection := database.Collection("vmParams")
+
+	var vmCountParam struct {
+		data string
+		vmId int
+	}
+	err := vmParamsCollection.FindOne(c, bson.M{"data": "count"}).Decode(&vmCountParam)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			vmCountParam = struct {
+				data string
+				vmId int
+			}{"count", 400}
+			_, err := vmParamsCollection.InsertOne(c, vmCountParam)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"context": "Inserting vm enumaration",
+					"message": err.Error(),
+				})
+				return
+			}
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"context": "Searching for vm enumaration",
+				"message": err.Error(),
+			})
+			return
+		}
+	}
+
 	vmName := "testvm"
 	vmNode := "spacex"
-	vmId := 401
+	vmId := vmCountParam.vmId
 	user := "louis"
 	password := "password"
+
+	vmCountParam.vmId++
+	_, err = vmParamsCollection.UpdateOne(c, bson.M{"data": "count"}, vmCountParam)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"context": "Updating count",
+			"message": err.Error(),
+		})
+		return
+	}
 
 	modelRef, err := proxmoxClient.GetVmRefByName("VM 9000")
 	if err != nil {

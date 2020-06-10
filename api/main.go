@@ -44,22 +44,29 @@ func main() {
 	r.POST("/register", registerUser)
 	r.GET("/list_user", listUsers)
 
-	r.GET("/new_container", createNewContainer)
+	r.GET("/new_container", CreateNewVM)
 
 	_ = r.Run()
 }
 
 func connectDB(ctx context.Context) *mongo.Client {
 	for {
-		url := "mongodb://" + os.Getenv("MONGO_INITDB_ROOT_USERNAME") + ":" + os.Getenv("MONGO_INITDB_ROOT_PASSWORD") + "@mongodb:27017"
+		url := "mongodb://" + os.Getenv("MONGO_INITDB_ROOT_USERNAME") + ":" + os.Getenv("MONGO_INITDB_ROOT_PASSWORD") + "@" + os.Getenv("MONGO_HOST") + ":" + os.Getenv("MONGO_PORT")
 		println("Connecting to ", url)
 
 		mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(url))
 		if err != nil {
 			log.Print(err)
-		} else {
+			continue
+		}
+		if mongoClient != nil {
+			err = mongoClient.Ping(ctx, nil)
+			if err != nil {
+				log.Print(err)
+			}
 			return mongoClient
 		}
+		time.Sleep(1 * time.Second)
 	}
 }
 

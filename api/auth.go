@@ -30,18 +30,18 @@ func login(c *gin.Context) {
 	var result Login
 	err := logins.FindOne(c, bson.D{{"login", login}}).Decode(&result)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, LOGIN_NOT_FOUND.toArray())
+		c.JSON(http.StatusInternalServerError, LOGIN_NOT_FOUND)
 		log.Print(err)
 		return
 	}
 	data, err := base64.StdEncoding.DecodeString(result.EncodedPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, CAN_NOT_READ_PASSWORD.toArray())
+		c.JSON(http.StatusInternalServerError, CAN_NOT_READ_PASSWORD)
 		log.Print(err)
 		return
 	}
 	if bcrypt.CompareHashAndPassword(data, []byte(c.PostForm("password"))) != nil {
-		c.JSON(http.StatusInternalServerError, BAD_PASSWORD.toArray())
+		c.JSON(http.StatusInternalServerError, BAD_PASSWORD)
 		return
 	}
 
@@ -50,7 +50,7 @@ func login(c *gin.Context) {
 	session.Set("infos", login_info)
 
 	if err := session.Save(); err != nil {
-		c.JSON(http.StatusInternalServerError, FAILED_TO_CONNECT_SESSION.toArray())
+		c.JSON(http.StatusInternalServerError, FAILED_TO_CONNECT_SESSION)
 		log.Print(err)
 		return
 	}
@@ -60,7 +60,7 @@ func login(c *gin.Context) {
 
 func registerUser(c *gin.Context) {
 	if database == nil {
-		c.JSON(http.StatusInternalServerError, CAN_NOT_CONNECT_DATABASE.toArray())
+		c.JSON(http.StatusInternalServerError, CAN_NOT_CONNECT_DATABASE)
 		return
 	}
 	logins := database.Collection("logins")
@@ -69,13 +69,13 @@ func registerUser(c *gin.Context) {
 	var result Login
 	err := logins.FindOne(c, bson.D{{"login", login}}).Decode(&result)
 	if err == nil {
-		c.JSON(http.StatusInternalServerError, LOGIN_ALREADY_REGISTERED.toArray())
+		c.JSON(http.StatusInternalServerError, LOGIN_ALREADY_REGISTERED)
 		log.Print(err)
 		return
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(c.PostForm("password")), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, PASSWORD_HASHING_FAILED.toArray())
+		c.JSON(http.StatusInternalServerError, PASSWORD_HASHING_FAILED)
 		log.Print(err)
 		return
 	}
@@ -90,7 +90,7 @@ func registerUser(c *gin.Context) {
 
 	insertResult, err := logins.InsertOne(c, infos)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, USER_REGISTRATION_FAILED.toArray())
+		c.JSON(http.StatusInternalServerError, USER_REGISTRATION_FAILED)
 		log.Print(err)
 		return
 	}
@@ -102,7 +102,7 @@ func registerUser(c *gin.Context) {
 
 func listUsers(c *gin.Context) {
 	if database == nil {
-		c.JSON(http.StatusInternalServerError, CAN_NOT_CONNECT_DATABASE.toArray())
+		c.JSON(http.StatusInternalServerError, CAN_NOT_CONNECT_DATABASE)
 		return
 	}
 
