@@ -22,7 +22,7 @@ type Login struct {
 func login(c *gin.Context) {
 	session := sessions.Default(c)
 	if database == nil {
-		c.JSON(http.StatusInternalServerError, CAN_NOT_CONNECT_DATABASE.toArray())
+		c.JSON(http.StatusInternalServerError, CAN_NOT_CONNECT_DATABASE)
 		return
 	}
 	logins := database.Collection("logins")
