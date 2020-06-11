@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package protocol;
+option go_package = "github.com/six3six/SpaceHoster/protocol";
+
+import "google/api/annotations.proto";
+
+message VmSpec {
+  int32 cpus = 1;
+  int32 ram = 2;
+  int32 disk = 3;
+}
+
+message CreateVmRequest {
+  string token = 1;
+  string vm_name = 2;
+  VmSpec vm_spec = 3;
+}
+
+message CreateVmResponse {
+  enum Code {
+    OK = 0;
+    BAD_TOKEN = 1;
+    NOT_ENOUGH_RESOURCES = 2;
+  }
+  Code code = 1;
+  string vm_name = 2;
+  int32 vm_id = 3;
+}
+
+message VmRequest {
+  string token = 1;
+  int32 vm_id = 2;
+}
+
+message StatusVmResponse {
+  enum Code {
+    OK = 0;
+    BAD_TOKEN = 1;
+    NOT_ALLOWED = 2;
+  }
+  Code code = 1;
+  enum Status {
+    STOPPED = 0;
+    PREPARING = 1;
+    STARTING = 2;
+    RUNNING = 3;
+  }
+  Status status = 2;
+}
+
+service VmService {
+  rpc Create(CreateVmRequest) returns (CreateVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/create"
+      body: "*"
+    };
+  };
+  rpc Status(VmRequest) returns (StatusVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/status"
+      body: "*"
+    };
+  };
+  rpc Start(VmRequest) returns (StatusVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/start"
+      body: "*"
+    };
+  };
+  rpc Stop(VmRequest) returns (StatusVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/stop"
+      body: "*"
+    };
+  };
+  rpc Restart(VmRequest) returns (StatusVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/restart"
+      body: "*"
+    };
+  };
+  rpc Delete(VmRequest) returns (StatusVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/delete"
+      body: "*"
+    };
+  };
+}

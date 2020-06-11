@@ -18,5 +18,6 @@
 
 *.idea/
 
-vmfs/
 keys/
+gen/
+proto/*.go

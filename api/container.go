@@ -1,12 +1,7 @@
 package main
 
 import (
-	"github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"net/http"
-	"time"
 )
 
 type Container struct {
@@ -17,6 +12,14 @@ type Container struct {
 	PublicName string
 }
 
+func CreateNewVm() {
+
+}
+
+func CreateNewVmHandler(c *gin.Context) {
+}
+
+/*
 func CreateNewVM(c *gin.Context) {
 	vmParamsCollection := database.Collection("vmParams")
 
@@ -121,3 +124,4 @@ func CreateNewVM(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": exitConfigStatus})
 }
+*/

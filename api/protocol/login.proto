@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package protocol;
+option go_package = "github.com/six3six/SpaceHoster/protocol";
+import "google/api/annotations.proto";
+
+message LoginRequest {
+  string login = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  enum Code {
+    OK = 0;
+    LOGIN_NOT_FOUND = 1;
+    INCORRECT_PASSWORD = 2;
+  }
+  Code code = 1;
+  string token = 2;
+}
+
+message RegisterRequest {
+  string login = 1;
+  string password = 2;
+  string name = 3;
+  string email = 4;
+}
+
+message RegisterResponse {
+  enum Code {
+    OK = 0;
+    LOGIN_ALREADY_EXIST = 1;
+    INCORRECT_PASSWORD = 2;
+    INCORRECT_EMAIL = 3;
+  }
+  Code code = 1;
+}
+
+message Token {
+  string token = 1;
+}
+
+service LoginService {
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/v1/login"
+      body: "*"
+    };
+  };
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/v1/register"
+      body: "*"
+    };
+  };
+  rpc Logout(Token) returns (Token) {
+    option (google.api.http) = {
+      post: "/v1/logout"
+      body: "*"
+    };
+  };
+}

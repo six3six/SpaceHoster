@@ -9,9 +9,20 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-gonic/gin v1.6.3
+	github.com/golang/protobuf v1.4.2
+	github.com/google/go-cmp v0.4.1 // indirect
+	github.com/googleapis/googleapis v0.0.0-20200610234946-0aa979424664 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.14.6
 	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/stretchr/testify v1.5.1 // indirect
 	go.mongodb.org/mongo-driver v1.3.4
-	golang.org/x/crypto v0.0.0-20190530122614-20be4c3c3ed5
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
+	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
+	google.golang.org/genproto v0.0.0-20200610104632-a5b850bcf112
+	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.24.0
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 )

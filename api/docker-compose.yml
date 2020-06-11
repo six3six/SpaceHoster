@@ -16,6 +16,15 @@ services:
     networks:
       - default
 
+  swagger:
+    image: swaggerapi/swagger-ui
+    ports:
+      - 8086:8080
+    volumes:
+      - ./swagger:/sw
+    environment:
+      - SWAGGER_JSON=/sw/*.json
+
   mongodb:
     image: mongo
     volumes:
