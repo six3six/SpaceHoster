@@ -20,7 +20,8 @@ func connectDB() {
 	for {
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		url := "mongodb://" + os.Getenv("MONGO_INITDB_ROOT_USERNAME") + ":" + os.Getenv("MONGO_INITDB_ROOT_PASSWORD") + "@" + os.Getenv("MONGO_HOST") + ":" + os.Getenv("MONGO_PORT")
-		println("Connecting to ", url)
+		showed_url := "mongodb://" + os.Getenv("MONGO_INITDB_ROOT_USERNAME") + ":xxxxxxxxxxx@" + os.Getenv("MONGO_HOST") + ":" + os.Getenv("MONGO_PORT")
+		log.Println("Connecting to ", showed_url)
 
 		mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(url))
 		if err != nil {
@@ -34,6 +35,7 @@ func connectDB() {
 				continue
 			}
 			database = mongoClient.Database("spacehoster")
+			log.Println("Success")
 			return
 		}
 
@@ -41,11 +43,12 @@ func connectDB() {
 }
 
 func connectDocker() *client.Client {
-
+	log.Println("Connecting to docker")
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		panic(err)
 	}
+	log.Println("Success")
 	return cli
 }
 
@@ -54,7 +57,7 @@ func connectProxmox() *proxmox.Client {
 	for {
 		url := "https://" + os.Getenv("PROXMOX_HOST") + ":" + os.Getenv("PROXMOX_API_PORT") + "/api2/json"
 
-		println("Connecting to ", url)
+		log.Println("Connecting to ", url)
 		c, err := proxmox.NewClient(url, nil, nil)
 		if err != nil {
 			log.Print(err)
@@ -64,6 +67,7 @@ func connectProxmox() *proxmox.Client {
 		if err != nil {
 			log.Fatal(err)
 		} else {
+			log.Println("Success")
 			return c
 		}
 
