@@ -12,9 +12,8 @@ require (
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.4.1 // indirect
-	github.com/googleapis/googleapis v0.0.0-20200610234946-0aa979424664 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.14.6
 	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.5.1 // indirect
 	go.mongodb.org/mongo-driver v1.3.4
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550

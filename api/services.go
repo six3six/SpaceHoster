@@ -38,7 +38,6 @@ func connectDB() {
 			log.Println("Success")
 			return
 		}
-
 	}
 }
 

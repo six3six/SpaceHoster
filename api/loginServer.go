@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/robfig/cron/v3"
 	"github.com/six3six/SpaceHoster/api/protocol"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,6 +31,8 @@ type Token struct {
 
 type loginServer struct {
 }
+
+const TOKEN_DURATION int64 = 30 * 60
 
 func (s *loginServer) Login(c context.Context, request *protocol.LoginRequest) (*protocol.LoginResponse, error) {
 	logins := database.Collection("logins")
@@ -87,10 +90,27 @@ func (s *loginServer) Register(c context.Context, request *protocol.RegisterRequ
 }
 
 func (s *loginServer) Logout(c context.Context, request *protocol.Token) (*protocol.Token, error) {
-	tokens := database.Collection("tokens")
-	_, err := tokens.DeleteOne(c, request)
+	err := CleanToken(request.Token)
 	if err != nil {
 		return nil, status.Error(codes.Aborted, err.Error())
 	}
 	return request, nil
+}
+
+var CleanTokensCronId cron.EntryID
+
+func CleanTokens() {
+	tokens := database.Collection("tokens")
+	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+	res, _ := tokens.DeleteMany(ctx, bson.M{"lastuse": bson.M{"$lt": time.Unix(time.Now().Unix()-TOKEN_DURATION, 0)}})
+	if res != nil {
+		log.Printf("Clear %d token(s)", res.DeletedCount)
+	}
+}
+
+func CleanToken(id string) error {
+	tokens := database.Collection("tokens")
+	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+	_, err := tokens.DeleteOne(ctx, bson.M{"token": id})
+	return err
 }
