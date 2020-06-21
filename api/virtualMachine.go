@@ -10,17 +10,26 @@ import (
 )
 
 type VirtualMachine struct {
-	Name       string
-	Id         int
-	StatusCode protocol.StatusVmResponse_Status
-	Spec       Spec
-	Error      string
+	Name          string
+	Id            int
+	StatusCode    protocol.StatusVmResponse_Status
+	Spec          Specification
+	Error         string
+	Owner         Login
+	UseOwnerQuota bool
+	Editors       []Login
 }
 
-type Spec struct {
-	cpu  int
-	ram  int
-	disk int
+type Specification struct {
+	Cores   int
+	Memory  int
+	Storage int
+}
+
+var defaultSpecification = Specification{
+	2,
+	1024,
+	30000,
 }
 
 func GetVirtualMachine(id int) (VirtualMachine, error) {
@@ -61,14 +70,14 @@ func (vm *VirtualMachine) Sync() error {
 	return err
 }
 
-func (spec *Spec) CheckSpec() error {
-	if spec.cpu < 1 {
+func (spec *Specification) CheckSpec() error {
+	if spec.Cores < 1 {
 		return fmt.Errorf("Vm must have at least 1 CPU")
 	}
-	if spec.disk < 2252 {
+	if spec.Storage < 2252 {
 		return fmt.Errorf("Vm must have at least 2252 Mb HDD")
 	}
-	if spec.ram < 512 {
+	if spec.Memory < 512 {
 		return fmt.Errorf("Vm must have at least 512 Mb RAM")
 	}
 

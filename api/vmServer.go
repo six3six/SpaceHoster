@@ -2,15 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/six3six/SpaceHoster/api/protocol"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log"
-	"time"
 )
 
 type VmServer struct {
@@ -81,7 +78,7 @@ func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*prot
 }
 
 func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) (*protocol.CreateVmResponse, error) {
-	_, err := CheckToken(request.Token)
+	login, err := CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_BAD_TOKEN, Name: "", Id: 0}, nil
@@ -90,9 +87,9 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 		}
 	}
 	if request.Spec == nil {
-		return nil, status.Errorf(codes.Aborted, "Spec does not exist")
+		return nil, status.Errorf(codes.Aborted, "Specification does not exist")
 	}
-	spec := Spec{int(request.Spec.Cpus), int(request.Spec.Ram), int(request.Spec.Disk)}
+	spec := Specification{int(request.Spec.Core), int(request.Spec.Memory), int(request.Spec.Storage)}
 
 	err = spec.CheckSpec()
 	if err != nil {
@@ -108,7 +105,8 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 
 	_, _ = virtualMachines.DeleteOne(c, bson.M{"id": vmId})
 
-	vm := VirtualMachine{Name: request.Name, Id: vmId, StatusCode: protocol.StatusVmResponse_PREPARED, Error: "", Spec: spec}
+	vm := VirtualMachine{request.Name, vmId, protocol.StatusVmResponse_PREPARED, spec, "", login.Login, true, []Login{}}
+
 	_, err = virtualMachines.InsertOne(c, vm)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
@@ -117,93 +115,4 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 	go VmCreationProcess(vm)
 
 	return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_OK, Name: request.Name, Id: int32(vmId)}, nil
-}
-
-func VmCreationProcess(vm VirtualMachine) {
-	err := CreateVM(vm)
-	if err != nil {
-		vm.Fatal(fmt.Errorf("Create error : %s", err.Error()))
-		return
-	}
-
-	err = SetupVM(vm)
-	if err != nil {
-		vm.Fatal(fmt.Errorf("Setup error : %s", err.Error()))
-		return
-	}
-	vm.StatusCode = protocol.StatusVmResponse_STOPPED
-	err = vm.Sync()
-	if err != nil {
-		vm.Fatal(fmt.Errorf("VmCreationProcess : %s", err.Error()))
-		return
-	}
-
-}
-
-func CreateVM(vm VirtualMachine) error {
-	vm.StatusCode = protocol.StatusVmResponse_CREATED
-	err := vm.Sync()
-	if err != nil {
-		return err
-	}
-	vmParent, err := proxmoxClient.GetVmRefByName("VM 9000")
-	if err != nil {
-		return err
-	}
-
-	cloneParams := map[string]interface{}{
-		"newid":  vm.Id,
-		"name":   vm.Name,
-		"target": "spacex",
-		"full":   false,
-	}
-
-	_, err = proxmoxClient.CloneQemuVm(vmParent, cloneParams)
-	if err != nil {
-		return err
-	}
-
-	timeout := 1 * time.Minute
-	start := time.Now().Unix()
-	for !vm.IsCreated() {
-		if time.Now().Unix()-start > int64(timeout.Seconds()) {
-			return fmt.Errorf("VM not created")
-		}
-		time.Sleep(1 * time.Second)
-		log.Printf("%d vm did not find", vm.Id)
-	}
-
-	return nil
-}
-
-func SetupVM(vm VirtualMachine) error {
-	vm.StatusCode = protocol.StatusVmResponse_SETUP
-	err := vm.Sync()
-	if err != nil {
-		return fmt.Errorf("Syncing error : %s", err.Error())
-	}
-	vmRef := proxmox.NewVmRef(vm.Id)
-	err = proxmoxClient.CheckVmRef(vmRef)
-	if err != nil {
-		return fmt.Errorf("Setup vm error : %s", err.Error())
-	}
-
-	param := map[string]interface{}{
-		"ciuser":     "louis",
-		"cipassword": "louis",
-		"memory":     vm.Spec.ram,
-		"cores":      vm.Spec.cpu,
-	}
-
-	_, err = proxmoxClient.SetVmConfig(vmRef, param)
-	if err != nil {
-		return fmt.Errorf("Setup vm error : %s", err.Error())
-	}
-
-	_, err = proxmoxClient.ResizeQemuDisk(vmRef, "scsi0", vm.Spec.disk-2252)
-	if err != nil {
-		return fmt.Errorf("Resize disk error : %s", err.Error())
-	}
-
-	return nil
 }

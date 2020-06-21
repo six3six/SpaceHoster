@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"github.com/robfig/cron/v3"
 	"github.com/six3six/SpaceHoster/api/protocol"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,29 +16,32 @@ import (
 	"time"
 )
 
-type Login struct {
-	Login           string
+type Login string
+
+type User struct {
+	Login           Login
 	EncodedPassword string
 	Email           string
 	Name            string
 	Roles           []string
+	Quota           Specification
 }
 
 type Token struct {
 	Token   string
-	Login   string
+	Login   Login
 	LastUse time.Time
 }
 
 type loginServer struct {
 }
 
-const TOKEN_DURATION int64 = 30 * 60
+const TokenDuration int64 = 30 * 60
 
 func (s *loginServer) Login(c context.Context, request *protocol.LoginRequest) (*protocol.LoginResponse, error) {
 	logins := database.Collection("logins")
 
-	var result Login
+	var result User
 	err := logins.FindOne(c, bson.D{{"login", request.Login}}).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -56,7 +58,7 @@ func (s *loginServer) Login(c context.Context, request *protocol.LoginRequest) (
 	sum := sha256.Sum256(append([]byte(request.Login+request.Password), date...))
 
 	tokens := database.Collection("tokens")
-	token := Token{base64.StdEncoding.EncodeToString(sum[:]), request.Login, time.Now()}
+	token := Token{base64.StdEncoding.EncodeToString(sum[:]), Login(request.Login), time.Now()}
 	_, err = tokens.InsertOne(c, token)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, fmt.Sprintf("Token cannot be registered %s", err.Error()))
@@ -67,7 +69,7 @@ func (s *loginServer) Login(c context.Context, request *protocol.LoginRequest) (
 func (s *loginServer) Register(c context.Context, request *protocol.RegisterRequest) (*protocol.RegisterResponse, error) {
 	logins := database.Collection("logins")
 
-	var result Login
+	var result User
 	err := logins.FindOne(c, bson.D{{"login", request.Login}}).Decode(&result)
 	if err != mongo.ErrNoDocuments {
 		return &protocol.RegisterResponse{Code: protocol.RegisterResponse_LOGIN_ALREADY_EXIST}, nil
@@ -81,7 +83,7 @@ func (s *loginServer) Register(c context.Context, request *protocol.RegisterRequ
 		return &protocol.RegisterResponse{Code: protocol.RegisterResponse_INCORRECT_PASSWORD}, nil
 	}
 
-	infos := Login{request.Login, string(hashedPassword), request.Email, request.Name, []string{"ADMIN"}}
+	infos := User{Login(request.Login), string(hashedPassword), request.Email, request.Name, []string{"ADMIN"}, defaultSpecification}
 	_, err = logins.InsertOne(c, infos)
 	if err == nil {
 		return nil, status.Errorf(codes.Aborted, fmt.Sprintf("Cannot register user : %s", error.Error))
@@ -98,12 +100,10 @@ func (s *loginServer) Logout(c context.Context, request *protocol.Token) (*proto
 	return request, nil
 }
 
-var CleanTokensCronId cron.EntryID
-
 func CleanTokens() {
 	tokens := database.Collection("tokens")
 	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-	res, _ := tokens.DeleteMany(ctx, bson.M{"lastuse": bson.M{"$lt": time.Unix(time.Now().Unix()-TOKEN_DURATION, 0)}})
+	res, _ := tokens.DeleteMany(ctx, bson.M{"lastuse": bson.M{"$lt": time.Unix(time.Now().Unix()-TokenDuration, 0)}})
 	if res != nil {
 		log.Printf("Clear %d token(s)", res.DeletedCount)
 	}
@@ -116,7 +116,7 @@ func CleanToken(token string) error {
 	return err
 }
 
-func CheckToken(token string) (*Login, error) {
+func CheckToken(token string) (*User, error) {
 	tokens := database.Collection("tokens")
 	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 
@@ -127,8 +127,13 @@ func CheckToken(token string) (*Login, error) {
 	}
 
 	logins := database.Collection("logins")
-	var login Login
+	var login User
 	err = logins.FindOne(ctx, bson.M{"login": tokenInfos.Login}).Decode(&login)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = logins.UpdateOne(ctx, bson.M{"login": tokenInfos.Login}, bson.M{"$set": bson.M{"lastuse": time.Now()}})
 	if err != nil {
 		return nil, err
 	}

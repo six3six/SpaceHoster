@@ -5,16 +5,16 @@ option go_package = "github.com/six3six/SpaceHoster/protocol";
 
 import "google/api/annotations.proto";
 
-message VmSpec {
-  int32 cpus = 1;
-  int32 ram = 2;
-  int32 disk = 3;
+message VmSpecification {
+  int32 core = 1;
+  int32 memory = 2;
+  int32 storage = 3;
 }
 
 message CreateVmRequest {
   string token = 1;
   string name = 2;
-  VmSpec spec = 3;
+  VmSpecification spec = 3;
 }
 
 message CreateVmResponse {
