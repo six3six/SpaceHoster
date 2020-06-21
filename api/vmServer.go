@@ -134,7 +134,7 @@ func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (
 		}
 	}
 	virtualMachines := database.Collection("virtualMachines")
-	vms, err := virtualMachines.Find(c, bson.M{"Owner": user.Login})
+	vms, err := virtualMachines.Find(c, bson.M{"owner": user.Login})
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
