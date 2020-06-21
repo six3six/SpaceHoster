@@ -73,7 +73,7 @@ func (s *loginServer) Register(c context.Context, request *protocol.RegisterRequ
 	err := logins.FindOne(c, bson.D{{"login", request.Login}}).Decode(&result)
 	if err != mongo.ErrNoDocuments {
 		return &protocol.RegisterResponse{Code: protocol.RegisterResponse_LOGIN_ALREADY_EXIST}, nil
-	} else if err != nil {
+	} else if err != nil && err != mongo.ErrNoDocuments {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
 
@@ -85,8 +85,8 @@ func (s *loginServer) Register(c context.Context, request *protocol.RegisterRequ
 
 	infos := User{Login(request.Login), string(hashedPassword), request.Email, request.Name, []string{"ADMIN"}, defaultSpecification}
 	_, err = logins.InsertOne(c, infos)
-	if err == nil {
-		return nil, status.Errorf(codes.Aborted, fmt.Sprintf("Cannot register user : %s", error.Error))
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, fmt.Sprintf("Cannot register user : %s", err.Error()))
 	}
 
 	return &protocol.RegisterResponse{Code: protocol.RegisterResponse_OK}, nil

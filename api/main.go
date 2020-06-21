@@ -17,7 +17,7 @@ func main() {
 	connectDB()
 
 	c := cron.New()
-	CleanTokensCronId, err = c.AddFunc("@every 30m", CleanTokens)
+	_, err = c.AddFunc("@every 30m", CleanTokens)
 	if err != nil {
 		log.Fatalf("failed to add cron: %v", err)
 	}
