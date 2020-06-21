@@ -31,9 +31,9 @@ func main() {
 	log.Printf("Server listening at : %s", address)
 	s := grpc.NewServer()
 	protocol.RegisterLoginServiceServer(s, &loginServer{})
+	protocol.RegisterVmServiceServer(s, &VmServer{})
 	log.Printf("Server available at : grpc://%s", address)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
-
 }

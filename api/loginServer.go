@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"github.com/robfig/cron/v3"
 	"github.com/six3six/SpaceHoster/api/protocol"
@@ -26,6 +27,7 @@ type Login struct {
 
 type Token struct {
 	Token   string
+	Login   string
 	LastUse time.Time
 }
 
@@ -49,13 +51,12 @@ func (s *loginServer) Login(c context.Context, request *protocol.LoginRequest) (
 		return &protocol.LoginResponse{Code: protocol.LoginResponse_INCORRECT_PASSWORD, Token: ""}, nil
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(request.Login+request.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, status.Errorf(codes.Aborted, "Can't hash token")
-	}
-	sum := md5.Sum(hash)
+	date := make([]byte, 8)
+	binary.LittleEndian.PutUint64(date, uint64(time.Now().UnixNano()))
+	sum := sha256.Sum256(append([]byte(request.Login+request.Password), date...))
+
 	tokens := database.Collection("tokens")
-	token := Token{hex.EncodeToString(sum[:]), time.Now()}
+	token := Token{base64.StdEncoding.EncodeToString(sum[:]), request.Login, time.Now()}
 	_, err = tokens.InsertOne(c, token)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, fmt.Sprintf("Token cannot be registered %s", err.Error()))
@@ -108,9 +109,28 @@ func CleanTokens() {
 	}
 }
 
-func CleanToken(id string) error {
+func CleanToken(token string) error {
 	tokens := database.Collection("tokens")
 	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-	_, err := tokens.DeleteOne(ctx, bson.M{"token": id})
+	_, err := tokens.DeleteOne(ctx, bson.M{"token": token})
 	return err
+}
+
+func CheckToken(token string) (*Login, error) {
+	tokens := database.Collection("tokens")
+	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+
+	var tokenInfos Token
+	err := tokens.FindOne(ctx, bson.M{"token": token}).Decode(&tokenInfos)
+	if err != nil {
+		return nil, err
+	}
+
+	logins := database.Collection("logins")
+	var login Login
+	err = logins.FindOne(ctx, bson.M{"login": tokenInfos.Login}).Decode(&login)
+	if err != nil {
+		return nil, err
+	}
+	return &login, nil
 }

@@ -13,8 +13,8 @@ message VmSpec {
 
 message CreateVmRequest {
   string token = 1;
-  string vm_name = 2;
-  VmSpec vm_spec = 3;
+  string name = 2;
+  VmSpec spec = 3;
 }
 
 message CreateVmResponse {
@@ -24,13 +24,13 @@ message CreateVmResponse {
     NOT_ENOUGH_RESOURCES = 2;
   }
   Code code = 1;
-  string vm_name = 2;
-  int32 vm_id = 3;
+  string name = 2;
+  int32 id = 3;
 }
 
 message VmRequest {
   string token = 1;
-  int32 vm_id = 2;
+  int32 id = 2;
 }
 
 message StatusVmResponse {
@@ -42,11 +42,14 @@ message StatusVmResponse {
   Code code = 1;
   enum Status {
     STOPPED = 0;
-    PREPARING = 1;
-    STARTING = 2;
-    RUNNING = 3;
+    PREPARED = 1;
+    CREATED = 2;
+    SETUP = 3;
+    RUNNING = 5;
+    ABORTED = 6;
   }
   Status status = 2;
+  string message = 3;
 }
 
 service VmService {
