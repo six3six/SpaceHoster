@@ -15,7 +15,7 @@ type VmServer struct {
 }
 
 func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
-	_, err := CheckToken(request.Token)
+	user, err := CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_BAD_TOKEN, Status: protocol.StatusVmResponse_ABORTED}, nil
@@ -27,6 +27,9 @@ func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protoco
 	vm, err := GetVirtualMachine(int(request.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+	if vm.Owner != user.Login {
+		return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_NOT_ALLOWED, Status: protocol.StatusVmResponse_ABORTED}, nil
 	}
 	err = vm.Start()
 	if err != nil {
@@ -37,7 +40,7 @@ func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protoco
 }
 
 func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
-	_, err := CheckToken(request.Token)
+	user, err := CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_BAD_TOKEN, Status: protocol.StatusVmResponse_ABORTED}, nil
@@ -49,6 +52,10 @@ func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*prot
 	vm, err := GetVirtualMachine(int(request.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+
+	if vm.Owner != user.Login {
+		return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_NOT_ALLOWED, Status: protocol.StatusVmResponse_ABORTED}, nil
 	}
 
 	if vm.StatusCode == protocol.StatusVmResponse_STOPPED || vm.StatusCode == protocol.StatusVmResponse_RUNNING {
