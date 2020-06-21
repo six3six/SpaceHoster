@@ -85,7 +85,7 @@ func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*prot
 }
 
 func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) (*protocol.CreateVmResponse, error) {
-	login, err := CheckToken(request.Token)
+	user, err := CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_BAD_TOKEN, Name: "", Id: 0}, nil
@@ -103,6 +103,11 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 		return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_NOT_ENOUGH_RESOURCES, Name: err.Error(), Id: 0}, nil
 	}
 
+	err = spec.CheckFreeResources(*user)
+	if err != nil {
+		return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_NOT_ENOUGH_RESOURCES, Name: err.Error(), Id: 0}, nil
+	}
+
 	vmId, err := proxmoxClient.NextId()
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
@@ -112,14 +117,14 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 
 	_, _ = virtualMachines.DeleteOne(c, bson.M{"id": vmId})
 
-	vm := VirtualMachine{request.Name, vmId, protocol.StatusVmResponse_PREPARED, spec, "", login.Login, true, []Login{}}
+	vm := VirtualMachine{request.Name, vmId, protocol.StatusVmResponse_PREPARED, spec, "", user.Login, true, []Login{}}
 
 	_, err = virtualMachines.InsertOne(c, vm)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
 
-	go VmCreationProcess(vm)
+	go VmCreationProcess(vm, string(user.Login), user.EncodedPassword)
 
 	return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_OK, Name: request.Name, Id: int32(vmId)}, nil
 }

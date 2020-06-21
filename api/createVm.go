@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-func VmCreationProcess(vm VirtualMachine) {
+func VmCreationProcess(vm VirtualMachine, login string, password string) {
 	err := CreateVM(vm)
 	if err != nil {
 		vm.Fatal(fmt.Errorf("Create error : %s", err.Error()))
 		return
 	}
 
-	err = SetupVM(vm)
+	err = SetupVM(vm, login, password)
 	if err != nil {
 		vm.Fatal(fmt.Errorf("Setup error : %s", err.Error()))
 		return
@@ -65,7 +65,7 @@ func CreateVM(vm VirtualMachine) error {
 	return nil
 }
 
-func SetupVM(vm VirtualMachine) error {
+func SetupVM(vm VirtualMachine, login string, password string) error {
 	vm.StatusCode = protocol.StatusVmResponse_SETUP
 	err := vm.Sync()
 	if err != nil {
@@ -78,8 +78,8 @@ func SetupVM(vm VirtualMachine) error {
 	}
 
 	param := map[string]interface{}{
-		"ciuser":     "louis",
-		"cipassword": "louis",
+		"ciuser":     login,
+		"cipassword": password,
 		"memory":     vm.Spec.Memory,
 		"cores":      vm.Spec.Cores,
 	}

@@ -83,3 +83,49 @@ func (spec *Specification) CheckSpec() error {
 
 	return nil
 }
+
+func (spec *Specification) CheckFreeResources(user User) error {
+	freeResources, err := user.GetFreeResources()
+	if err != nil {
+		return err
+	}
+	if spec.Cores > freeResources.Cores {
+		return fmt.Errorf("You will exceed your CPU quota by %d core", spec.Cores-freeResources.Cores)
+	}
+	if spec.Storage > freeResources.Storage {
+		return fmt.Errorf("You will exceed your storage quota by %d Mb", spec.Storage-freeResources.Storage)
+	}
+	if spec.Memory > freeResources.Memory {
+		return fmt.Errorf("You will exceed your memory quota by %d Mb", spec.Memory-freeResources.Memory)
+	}
+
+	return nil
+}
+
+func (user *User) GetFreeResources() (Specification, error) {
+	c := context.Background()
+
+	virtualMachines := database.Collection("virtualMachines")
+	vms, err := virtualMachines.Find(c, bson.M{"owner": user.Login})
+	if err != nil {
+		return Specification{}, err
+	}
+
+	result := user.Quota
+	for vms.Next(c) {
+
+		var vm VirtualMachine
+		err := vms.Decode(&vm)
+		if err != nil {
+			return Specification{}, err
+		}
+
+		if vm.UseOwnerQuota {
+			result.Storage -= vm.Spec.Storage
+			result.Memory -= vm.Spec.Memory
+			result.Storage -= vm.Spec.Storage
+		}
+	}
+
+	return result, nil
+}
