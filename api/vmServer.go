@@ -17,20 +17,6 @@ type VmServer struct {
 	protocol.UnimplementedVmServiceServer
 }
 
-type VirtualMachine struct {
-	Name       string
-	Id         int
-	StatusCode protocol.StatusVmResponse_Status
-	Spec       Spec
-	Error      string
-}
-
-type Spec struct {
-	cpu  int
-	ram  int
-	disk int
-}
-
 func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
 	_, err := CheckToken(request.Token)
 	if err != nil {
@@ -108,7 +94,7 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 	}
 	spec := Spec{int(request.Spec.Cpus), int(request.Spec.Ram), int(request.Spec.Disk)}
 
-	err = CheckSpec(spec)
+	err = spec.CheckSpec()
 	if err != nil {
 		return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_NOT_ENOUGH_RESOURCES, Name: err.Error(), Id: 0}, nil
 	}
@@ -131,20 +117,6 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 	go VmCreationProcess(vm)
 
 	return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_OK, Name: request.Name, Id: int32(vmId)}, nil
-}
-
-func CheckSpec(spec Spec) error {
-	if spec.cpu < 1 {
-		return fmt.Errorf("Vm must have at least 1 CPU")
-	}
-	if spec.disk < 2252 {
-		return fmt.Errorf("Vm must have at least 2252 Mb HDD")
-	}
-	if spec.ram < 512 {
-		return fmt.Errorf("Vm must have at least 512 Mb RAM")
-	}
-
-	return nil
 }
 
 func VmCreationProcess(vm VirtualMachine) {
@@ -193,7 +165,7 @@ func CreateVM(vm VirtualMachine) error {
 
 	timeout := 1 * time.Minute
 	start := time.Now().Unix()
-	for !IsCreated(vm) {
+	for !vm.IsCreated() {
 		if time.Now().Unix()-start > int64(timeout.Seconds()) {
 			return fmt.Errorf("VM not created")
 		}
@@ -234,46 +206,4 @@ func SetupVM(vm VirtualMachine) error {
 	}
 
 	return nil
-}
-
-func UpdateStatus(vm VirtualMachine) error {
-	virtualMachines := database.Collection("virtualMachines")
-	_, err := virtualMachines.UpdateOne(context.Background(), bson.M{"id": vm.Id}, bson.M{"$set": vm})
-	return err
-}
-
-func IsCreated(vm VirtualMachine) bool {
-	_, err := proxmoxClient.VMIdExists(vm.Id)
-	return err != nil
-}
-
-func GetVirtualMachine(id int) (VirtualMachine, error) {
-	virtualMachines := database.Collection("virtualMachines")
-	vm := VirtualMachine{}
-	err := virtualMachines.FindOne(context.Background(), bson.M{"id": id}).Decode(&vm)
-	return vm, err
-}
-
-func (vm *VirtualMachine) Fatal(err error) {
-	vm.StatusCode = protocol.StatusVmResponse_ABORTED
-	vm.Error = err.Error()
-	_ = vm.Sync()
-	log.Printf(err.Error())
-}
-
-func (vm *VirtualMachine) Start() error {
-	vmRef := proxmox.NewVmRef(vm.Id)
-	err := proxmoxClient.CheckVmRef(vmRef)
-	if err != nil {
-		return fmt.Errorf("Setup vm error : %s", err.Error())
-	}
-	_, err = proxmoxClient.StartVm(vmRef)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (vm *VirtualMachine) Sync() error {
-	return UpdateStatus(*vm)
 }
