@@ -52,6 +52,22 @@ message StatusVmResponse {
   string message = 3;
 }
 
+message JustTokenRequest {
+  string token = 1;
+}
+
+message ListVmResponse {
+  enum Code {
+    OK = 0;
+    BAD_TOKEN = 1;
+    NOT_ALLOWED = 2;
+  }
+  Code code = 1;
+  repeated int32 id = 2;
+}
+
+
+
 service VmService {
   rpc Create(CreateVmRequest) returns (CreateVmResponse) {
     option (google.api.http) = {
@@ -62,6 +78,12 @@ service VmService {
   rpc Status(VmRequest) returns (StatusVmResponse) {
     option (google.api.http) = {
       post: "/v1/vm/status"
+      body: "*"
+    };
+  };
+  rpc List(JustTokenRequest) returns (ListVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/list"
       body: "*"
     };
   };

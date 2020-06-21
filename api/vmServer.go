@@ -123,3 +123,33 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 
 	return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_OK, Name: request.Name, Id: int32(vmId)}, nil
 }
+
+func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (*protocol.ListVmResponse, error) {
+	user, err := CheckToken(request.Token)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &protocol.ListVmResponse{Code: protocol.ListVmResponse_BAD_TOKEN, Id: []int32{}}, nil
+		} else {
+			return nil, status.Errorf(codes.Aborted, err.Error())
+		}
+	}
+	virtualMachines := database.Collection("virtualMachines")
+	vms, err := virtualMachines.Find(c, bson.M{"Owner": user.Login})
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+
+	id := []int32{}
+	for vms.Next(c) {
+
+		var vm VirtualMachine
+		err := vms.Decode(&vm)
+		if err != nil {
+			return nil, status.Errorf(codes.Aborted, err.Error())
+		}
+
+		id = append(id, int32(vm.Id))
+	}
+
+	return &protocol.ListVmResponse{Code: protocol.ListVmResponse_OK, Id: id}, nil
+}
