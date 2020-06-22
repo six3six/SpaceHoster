@@ -14,7 +14,7 @@ message VmSpecification {
 message CreateVmRequest {
   string token = 1;
   string name = 2;
-  VmSpecification spec = 3;
+  VmSpecification specification = 3;
 }
 
 message CreateVmResponse {
@@ -60,10 +60,19 @@ message ListVmResponse {
   enum Code {
     OK = 0;
     BAD_TOKEN = 1;
-    NOT_ALLOWED = 2;
   }
   Code code = 1;
   repeated int32 id = 2;
+}
+
+message FreeResourcesResponse {
+  enum Code {
+    OK = 0;
+    BAD_TOKEN = 1;
+  }
+  Code code = 1;
+  VmSpecification free = 2;
+  VmSpecification total = 3;
 }
 
 
@@ -84,6 +93,12 @@ service VmService {
   rpc List(JustTokenRequest) returns (ListVmResponse) {
     option (google.api.http) = {
       post: "/v1/vm/list"
+      body: "*"
+    };
+  };
+  rpc FreeResources(JustTokenRequest) returns (FreeResourcesResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/free"
       body: "*"
     };
   };

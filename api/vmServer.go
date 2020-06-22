@@ -93,10 +93,10 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 			return nil, status.Errorf(codes.Aborted, err.Error())
 		}
 	}
-	if request.Spec == nil {
+	if request.Specification == nil {
 		return nil, status.Errorf(codes.Aborted, "Specification does not exist")
 	}
-	spec := Specification{int(request.Spec.Core), int(request.Spec.Memory), int(request.Spec.Storage)}
+	spec := Specification{int(request.Specification.Core), int(request.Specification.Memory), int(request.Specification.Storage)}
 
 	err = spec.CheckSpec()
 	if err != nil {
@@ -157,4 +157,27 @@ func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (
 	}
 
 	return &protocol.ListVmResponse{Code: protocol.ListVmResponse_OK, Id: id}, nil
+}
+
+func (s *VmServer) FreeResources(c context.Context, request *protocol.JustTokenRequest) (*protocol.FreeResourcesResponse, error) {
+	user, err := CheckToken(request.Token)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &protocol.FreeResourcesResponse{Code: protocol.FreeResourcesResponse_BAD_TOKEN, Free: nil, Total: nil}, nil
+		} else {
+			return nil, status.Errorf(codes.Aborted, err.Error())
+		}
+	}
+
+	free, err := user.GetFreeResources()
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+
+	total := user.Quota
+
+	freePrt := protocol.VmSpecification{Storage: int32(free.Storage), Memory: int32(free.Memory), Core: int32(free.Cores)}
+	totalPrt := protocol.VmSpecification{Storage: int32(total.Storage), Memory: int32(total.Memory), Core: int32(total.Cores)}
+
+	return &protocol.FreeResourcesResponse{Code: protocol.FreeResourcesResponse_OK, Free: &freePrt, Total: &totalPrt}, nil
 }
