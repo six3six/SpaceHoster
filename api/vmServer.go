@@ -31,7 +31,34 @@ func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protoco
 	if vm.Owner != user.Login {
 		return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_NOT_ALLOWED, Status: protocol.StatusVmResponse_ABORTED}, nil
 	}
+
 	err = vm.Start()
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+
+	return &protocol.StatusVmResponse{Status: vm.StatusCode, Code: protocol.StatusVmResponse_OK, Message: vm.Error}, nil
+}
+
+func (*VmServer) Stop(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
+	user, err := CheckToken(request.Token)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_BAD_TOKEN, Status: protocol.StatusVmResponse_ABORTED}, nil
+		} else {
+			return nil, status.Errorf(codes.Aborted, err.Error())
+		}
+	}
+
+	vm, err := GetVirtualMachine(int(request.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+	if vm.Owner != user.Login {
+		return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_NOT_ALLOWED, Status: protocol.StatusVmResponse_ABORTED}, nil
+	}
+
+	err = vm.Stop()
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -117,7 +144,7 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 
 	_, _ = virtualMachines.DeleteOne(c, bson.M{"id": vmId})
 
-	vm := VirtualMachine{request.Name, vmId, protocol.StatusVmResponse_PREPARED, spec, "", user.Login, true, []Login{}}
+	vm := VirtualMachine{request.Name, vmId, protocol.StatusVmResponse_PREPARED, "", user.Login, true, []Login{}}
 
 	_, err = virtualMachines.InsertOne(c, vm)
 	if err != nil {

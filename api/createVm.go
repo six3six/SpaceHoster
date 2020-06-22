@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/six3six/SpaceHoster/api/protocol"
 	"log"
 	"time"
@@ -66,33 +65,34 @@ func CreateVM(vm VirtualMachine) error {
 }
 
 func SetupVM(vm VirtualMachine, login string, password string) error {
-	vm.StatusCode = protocol.StatusVmResponse_SETUP
-	err := vm.Sync()
-	if err != nil {
-		return fmt.Errorf("Syncing error : %s", err.Error())
-	}
-	vmRef := proxmox.NewVmRef(vm.Id)
-	err = proxmoxClient.CheckVmRef(vmRef)
-	if err != nil {
-		return fmt.Errorf("Setup vm error : %s", err.Error())
-	}
+	/*
+		vm.StatusCode = protocol.StatusVmResponse_SETUP
+		err := vm.Sync()
+		if err != nil {
+			return fmt.Errorf("Syncing error : %s", err.Error())
+		}
+		vmRef := proxmox.NewVmRef(vm.Id)
+		err = proxmoxClient.CheckVmRef(vmRef)
+		if err != nil {
+			return fmt.Errorf("Setup vm error : %s", err.Error())
+		}
 
-	param := map[string]interface{}{
-		"ciuser":     login,
-		"cipassword": password,
-		"memory":     vm.Spec.Memory,
-		"cores":      vm.Spec.Cores,
-	}
+		param := map[string]interface{}{
+			"ciuser":     login,
+			"cipassword": password,
+			"memory":     vm.Spec.Memory,
+			"cores":      vm.Spec.Cores,
+		}
 
-	_, err = proxmoxClient.SetVmConfig(vmRef, param)
-	if err != nil {
-		return fmt.Errorf("Setup vm error : %s", err.Error())
-	}
+		_, err = proxmoxClient.SetVmConfig(vmRef, param)
+		if err != nil {
+			return fmt.Errorf("Setup vm error : %s", err.Error())
+		}
 
-	_, err = proxmoxClient.ResizeQemuDisk(vmRef, "scsi0", vm.Spec.Storage-2252)
-	if err != nil {
-		return fmt.Errorf("Resize storage error : %s", err.Error())
-	}
-
+		_, err = proxmoxClient.ResizeQemuDisk(vmRef, "scsi0", vm.Spec.Storage-2252)
+		if err != nil {
+			return fmt.Errorf("Resize storage error : %s", err.Error())
+		}
+	*/
 	return nil
 }

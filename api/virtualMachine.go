@@ -7,13 +7,14 @@ import (
 	"github.com/six3six/SpaceHoster/api/protocol"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
+	"strconv"
+	"strings"
 )
 
 type VirtualMachine struct {
 	Name          string
 	Id            int
 	StatusCode    protocol.StatusVmResponse_Status
-	Spec          Specification
 	Error         string
 	Owner         Login
 	UseOwnerQuota bool
@@ -52,12 +53,23 @@ func (vm *VirtualMachine) Fatal(err error) {
 }
 
 func (vm *VirtualMachine) Start() error {
-	vmRef := proxmox.NewVmRef(vm.Id)
-	err := proxmoxClient.CheckVmRef(vmRef)
+	vmRef, err := GetVmRefById(vm.Id)
 	if err != nil {
-		return fmt.Errorf("Setup vm error : %s", err.Error())
+		return fmt.Errorf("Start vm error : %s", err.Error())
 	}
 	_, err = proxmoxClient.StartVm(vmRef)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (vm *VirtualMachine) Stop() error {
+	vmRef, err := GetVmRefById(vm.Id)
+	if err != nil {
+		return fmt.Errorf("Stop vm error : %s", err.Error())
+	}
+	_, err = proxmoxClient.StopVm(vmRef)
 	if err != nil {
 		return err
 	}
@@ -82,6 +94,19 @@ func (spec *Specification) CheckSpec() error {
 	}
 
 	return nil
+}
+
+func GetVmRefById(id int) (*proxmox.VmRef, error) {
+	vmRef := proxmox.NewVmRef(id)
+	err := proxmoxClient.CheckVmRef(vmRef)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("Vm '%d' not found", id) {
+			virtualMachines := database.Collection("virtualMachines")
+			_, _ = virtualMachines.DeleteOne(context.Background(), bson.M{"id": id})
+		}
+		return nil, err
+	}
+	return vmRef, nil
 }
 
 func (spec *Specification) CheckFreeResources(user User) error {
@@ -120,10 +145,34 @@ func (user *User) GetFreeResources() (Specification, error) {
 			return Specification{}, err
 		}
 
+		vmRef, err := GetVmRefById(vm.Id)
+		if err != nil {
+			continue
+		}
+
+		config, _ := proxmoxClient.GetVmConfig(vmRef)
+
 		if vm.UseOwnerQuota {
-			result.Storage -= vm.Spec.Storage
-			result.Memory -= vm.Spec.Memory
-			result.Storage -= vm.Spec.Storage
+			diskInfo, conv := config["scsi0"].(string)
+			if !conv {
+				return Specification{}, err
+			}
+			cores, conv := config["cores"].(float64)
+			if !conv {
+				return Specification{}, err
+			}
+			memory, conv := config["memory"].(float64)
+			if !conv {
+				return Specification{}, err
+			}
+			storage, err := strconv.Atoi(diskInfo[strings.Index(diskInfo, "=")+1 : len(diskInfo)-1])
+			if err != nil {
+				return Specification{}, err
+			}
+
+			result.Cores -= int(cores)
+			result.Memory -= int(memory)
+			result.Storage -= storage
 		}
 	}
 
