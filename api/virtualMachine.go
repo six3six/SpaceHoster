@@ -100,10 +100,11 @@ func GetVmRefById(id int) (*proxmox.VmRef, error) {
 	vmRef := proxmox.NewVmRef(id)
 	err := proxmoxClient.CheckVmRef(vmRef)
 	if err != nil {
-		if err.Error() == fmt.Sprintf("Vm '%d' not found", id) {
-			virtualMachines := database.Collection("virtualMachines")
-			_, _ = virtualMachines.DeleteOne(context.Background(), bson.M{"id": id})
-		}
+		/*
+			if err.Error() == fmt.Sprintf("Vm '%d' not found", id) {
+				virtualMachines := database.Collection("virtualMachines")
+				_, _ = virtualMachines.DeleteOne(context.Background(), bson.M{"id": id})
+			}*/
 		return nil, err
 	}
 	return vmRef, nil
