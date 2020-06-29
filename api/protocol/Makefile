@@ -14,7 +14,7 @@ CLIENT_FLAGS := \
 COMPILE := \
 	*.proto \
 
-PROTOC =: protoc
+PROTOC = protoc
 
 all:
 	mkdir -p google/api
