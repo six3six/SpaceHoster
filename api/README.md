@@ -2,6 +2,25 @@
 
 Based on gRPC and protobuf
 
+## Roadmap
+Sorted by priority
+
+### Release 1
+- [x] Basic authentication
+- [x] Automatic VM creation
+- [ ] VM modification
+- [ ] VM delete
+- [ ] VNC Proxy
+- [ ] LDAP authentication
+- [ ] User info modification
+- [ ] User management
+
+
+### Release 2
+- [ ] Docker/Kubernetes deployment
+- [ ] Virtual network management
+- [ ] Two factor authentication
+
 ## Environment variables
 ```dotenv
 MONGO_INITDB_ROOT_USERNAME=
