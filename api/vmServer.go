@@ -171,7 +171,7 @@ func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
 
-	id := []int32{}
+	var id []int32
 	for vms.Next(c) {
 
 		var vm VirtualMachine
@@ -180,7 +180,9 @@ func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (
 			return nil, status.Errorf(codes.Aborted, err.Error())
 		}
 
-		id = append(id, int32(vm.Id))
+		if vm.Created() {
+			id = append(id, int32(vm.Id))
+		}
 	}
 
 	return &protocol.ListVmResponse{Code: protocol.ListVmResponse_OK, Id: id}, nil

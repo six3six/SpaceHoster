@@ -25,7 +25,6 @@ func VmCreationProcess(vm VirtualMachine, login string, password string) {
 		vm.Fatal(fmt.Errorf("VmCreationProcess : %s", err.Error()))
 		return
 	}
-
 }
 
 func CreateVM(vm VirtualMachine) error {
@@ -53,7 +52,7 @@ func CreateVM(vm VirtualMachine) error {
 
 	timeout := 1 * time.Minute
 	start := time.Now().Unix()
-	for !vm.IsCreated() {
+	for !vm.Created() {
 		if time.Now().Unix()-start > int64(timeout.Seconds()) {
 			return fmt.Errorf("VM not created")
 		}

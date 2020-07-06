@@ -27,12 +27,6 @@ type Specification struct {
 	Storage int
 }
 
-var defaultSpecification = Specification{
-	2,
-	1024,
-	30000,
-}
-
 func GetVirtualMachine(id int) (VirtualMachine, error) {
 	virtualMachines := database.Collection("virtualMachines")
 	vm := VirtualMachine{}
@@ -40,7 +34,7 @@ func GetVirtualMachine(id int) (VirtualMachine, error) {
 	return vm, err
 }
 
-func (vm *VirtualMachine) IsCreated() bool {
+func (vm *VirtualMachine) Created() bool {
 	_, err := proxmoxClient.VMIdExists(vm.Id)
 	return err != nil
 }
@@ -128,7 +122,7 @@ func (spec *Specification) CheckFreeResources(user User) error {
 	return nil
 }
 
-func (user *User) GetFreeResources() (Specification, error) {
+func (user *User) GetUsedResources() (Specification, error) {
 	c := context.Background()
 
 	virtualMachines := database.Collection("virtualMachines")
@@ -137,13 +131,17 @@ func (user *User) GetFreeResources() (Specification, error) {
 		return Specification{}, err
 	}
 
-	result := user.Quota
+	var result Specification
 	for vms.Next(c) {
 
 		var vm VirtualMachine
 		err := vms.Decode(&vm)
 		if err != nil {
 			return Specification{}, err
+		}
+
+		if !vm.Created() {
+			continue
 		}
 
 		vmRef, err := GetVmRefById(vm.Id)
@@ -171,11 +169,25 @@ func (user *User) GetFreeResources() (Specification, error) {
 				return Specification{}, err
 			}
 
-			result.Cores -= int(cores)
-			result.Memory -= int(memory)
-			result.Storage -= storage
+			result.Cores += int(cores)
+			result.Memory += int(memory)
+			result.Storage += storage
 		}
 	}
+
+	return result, nil
+}
+
+func (user *User) GetFreeResources() (Specification, error) {
+	result := user.Quota
+	used, err := user.GetUsedResources()
+	if err != nil {
+		return Specification{}, err
+	}
+
+	result.Cores -= used.Cores
+	result.Memory -= used.Memory
+	result.Storage -= used.Storage
 
 	return result, nil
 }
