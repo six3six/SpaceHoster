@@ -95,6 +95,45 @@ func (vm *VirtualMachine) Sync() error {
 	return err
 }
 
+func (vm *VirtualMachine) EditSpecification(specification Specification) error {
+
+	err := specification.CheckMinimumResources()
+	if err != nil {
+		return fmt.Errorf("Edit vm error : %s", err.Error())
+	}
+
+	vmRef, err := GetVmRefById(vm.Id)
+	if err != nil {
+		return fmt.Errorf("Edit vm error : %s", err.Error())
+	}
+
+	actualSpec, err := vm.GetSpecification()
+	if err != nil {
+		return fmt.Errorf("Edit vm error : %s", err.Error())
+	}
+
+	if specification.Storage < actualSpec.Storage {
+		return fmt.Errorf("Edit vm error : cannot decrease disk size")
+	}
+
+	param := map[string]interface{}{
+		"memory": specification.Memory,
+		"cores":  specification.Cores,
+	}
+
+	_, err = proxmoxClient.SetVmConfig(vmRef, param)
+	if err != nil {
+		return fmt.Errorf("Edit vm error : %s", err.Error())
+	}
+
+	_, err = proxmoxClient.ResizeQemuDisk(vmRef, "scsi0", specification.Storage-actualSpec.Storage)
+	if err != nil {
+		return fmt.Errorf("Resize storage error : %s", err.Error())
+	}
+
+	return nil
+}
+
 func (spec *Specification) CheckMinimumResources() error {
 	if spec.Cores < 1 {
 		return fmt.Errorf("Vm must have at least 1 CPU")
@@ -123,8 +162,8 @@ func GetVmRefById(id int) (*proxmox.VmRef, error) {
 	return vmRef, nil
 }
 
-func (spec *Specification) CheckFreeResources(user User) error {
-	freeResources, err := user.GetFreeResources()
+func (spec *Specification) CheckFreeResourcesWithout(user User, without Specification) error {
+	freeResources, err := user.GetFreeResourcesWithout(without)
 	if err != nil {
 		return err
 	}
@@ -139,6 +178,10 @@ func (spec *Specification) CheckFreeResources(user User) error {
 	}
 
 	return nil
+}
+
+func (spec *Specification) CheckFreeResources(user User) error {
+	return spec.CheckFreeResourcesWithout(user, Specification{0, 0, 0})
 }
 
 func (user *User) GetUsedResources() (Specification, error) {
@@ -163,50 +206,69 @@ func (user *User) GetUsedResources() (Specification, error) {
 			continue
 		}
 
-		vmRef, err := GetVmRefById(vm.Id)
-		if err != nil {
-			continue
-		}
-
-		config, _ := proxmoxClient.GetVmConfig(vmRef)
-
 		if vm.UseOwnerQuota {
-			diskInfo, conv := config["scsi0"].(string)
-			if !conv {
-				return Specification{}, err
-			}
-			cores, conv := config["cores"].(float64)
-			if !conv {
-				return Specification{}, err
-			}
-			memory, conv := config["memory"].(float64)
-			if !conv {
-				return Specification{}, err
-			}
-			storage, err := strconv.Atoi(diskInfo[strings.Index(diskInfo, "=")+1 : len(diskInfo)-1])
+			specs, err := vm.GetSpecification()
 			if err != nil {
 				return Specification{}, err
 			}
 
-			result.Cores += int(cores)
-			result.Memory += int(memory)
-			result.Storage += storage
+			result.Storage -= specs.Storage
+			result.Memory -= specs.Memory
+			result.Cores -= specs.Cores
 		}
+
 	}
 
 	return result, nil
 }
 
-func (user *User) GetFreeResources() (Specification, error) {
+func (vm VirtualMachine) GetSpecification() (Specification, error) {
+	vmRef, err := GetVmRefById(vm.Id)
+	if err != nil {
+		return Specification{}, fmt.Errorf("GetSpecification error : %s", err.Error())
+	}
+
+	config, err := proxmoxClient.GetVmConfig(vmRef)
+
+	diskInfo, conv := config["scsi0"].(string)
+	if !conv {
+		return Specification{}, fmt.Errorf("Can't convert scsi0 var from %d vm", vm.Id)
+	}
+	cores, conv := config["cores"].(float64)
+	if !conv {
+		return Specification{}, fmt.Errorf("Can't convert cores var from %d vm", vm.Id)
+	}
+	memory, conv := config["memory"].(float64)
+	if !conv {
+		return Specification{}, fmt.Errorf("Can't convert memory var from %d vm", vm.Id)
+	}
+	storage, err := strconv.Atoi(diskInfo[strings.Index(diskInfo, "=")+1 : len(diskInfo)-1])
+	if err != nil {
+		return Specification{}, fmt.Errorf("GetSpecification error : %s", err.Error())
+	}
+
+	var result Specification
+	result.Cores += int(cores)
+	result.Memory += int(memory)
+	result.Storage += storage
+
+	return result, nil
+}
+
+func (user *User) GetFreeResourcesWithout(without Specification) (Specification, error) {
 	result := user.Quota
 	used, err := user.GetUsedResources()
 	if err != nil {
 		return Specification{}, err
 	}
 
-	result.Cores -= used.Cores
-	result.Memory -= used.Memory
-	result.Storage -= used.Storage
+	result.Cores -= used.Cores - without.Cores
+	result.Memory -= used.Memory - without.Cores
+	result.Storage -= used.Storage - without.Cores
 
 	return result, nil
+}
+
+func (user *User) GetFreeResources() (Specification, error) {
+	return user.GetFreeResourcesWithout(Specification{0, 0, 0})
 }

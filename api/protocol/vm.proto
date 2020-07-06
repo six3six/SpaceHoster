@@ -17,6 +17,12 @@ message CreateVmRequest {
   VmSpecification specification = 3;
 }
 
+message ModifyVmRequest {
+  string token = 1;
+  int32 id = 2;
+  VmSpecification specification = 3;
+}
+
 message CreateVmResponse {
   enum Code {
     OK = 0;
@@ -85,24 +91,6 @@ service VmService {
       body: "*"
     };
   };
-  rpc Status(VmRequest) returns (StatusVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/status"
-      body: "*"
-    };
-  };
-  rpc List(JustTokenRequest) returns (ListVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/list"
-      body: "*"
-    };
-  };
-  rpc FreeResources(JustTokenRequest) returns (FreeResourcesResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/free"
-      body: "*"
-    };
-  };
   rpc Start(VmRequest) returns (StatusVmResponse) {
     option (google.api.http) = {
       post: "/v1/vm/start"
@@ -121,9 +109,33 @@ service VmService {
       body: "*"
     };
   };
+  rpc Modify(ModifyVmRequest) returns (StatusVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/modify"
+      body: "*"
+    };
+  };
   rpc Delete(VmRequest) returns (StatusVmResponse) {
     option (google.api.http) = {
       post: "/v1/vm/delete"
+      body: "*"
+    };
+  };
+  rpc Status(VmRequest) returns (StatusVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/status"
+      body: "*"
+    };
+  };
+  rpc List(JustTokenRequest) returns (ListVmResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/list"
+      body: "*"
+    };
+  };
+  rpc FreeResources(JustTokenRequest) returns (FreeResourcesResponse) {
+    option (google.api.http) = {
+      post: "/v1/vm/free"
       body: "*"
     };
   };
