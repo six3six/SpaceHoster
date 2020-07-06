@@ -19,7 +19,7 @@ func VmCreationProcess(vm VirtualMachine, login string, password string, specifi
 		vm.Fatal(fmt.Errorf("Setup error : %s", err.Error()))
 		return
 	}
-	vm.StatusCode = protocol.StatusVmResponse_STOPPED
+	vm.StatusCode = protocol.Status_STOPPED
 	err = vm.Sync()
 	if err != nil {
 		vm.Fatal(fmt.Errorf("VmCreationProcess : %s", err.Error()))
@@ -28,7 +28,7 @@ func VmCreationProcess(vm VirtualMachine, login string, password string, specifi
 }
 
 func CreateVM(vm VirtualMachine) error {
-	vm.StatusCode = protocol.StatusVmResponse_CREATED
+	vm.StatusCode = protocol.Status_CREATED
 	err := vm.Sync()
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func CreateVM(vm VirtualMachine) error {
 }
 
 func SetupVM(vm VirtualMachine, login string, password string, specification Specification) error {
-	vm.StatusCode = protocol.StatusVmResponse_SETUP
+	vm.StatusCode = protocol.Status_SETUP
 	err := vm.Sync()
 	if err != nil {
 		return fmt.Errorf("Syncing error : %s", err.Error())

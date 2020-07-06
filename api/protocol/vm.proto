@@ -5,6 +5,23 @@ option go_package = "github.com/six3six/SpaceHoster/protocol";
 
 import "google/api/annotations.proto";
 
+enum Status {
+  STOPPED = 0;
+  PREPARED = 1;
+  CREATED = 2;
+  SETUP = 3;
+  RUNNING = 5;
+  ABORTED = 6;
+  DELETED = 7;
+}
+
+enum Code {
+  OK = 0;
+  BAD_TOKEN = 1;
+  NOT_ALLOWED = 2;
+  NOT_ENOUGH_RESOURCES = 3;
+}
+
 message VmSpecification {
   int32 core = 1;
   int32 memory = 2;
@@ -24,11 +41,7 @@ message ModifyVmRequest {
 }
 
 message CreateVmResponse {
-  enum Code {
-    OK = 0;
-    BAD_TOKEN = 1;
-    NOT_ENOUGH_RESOURCES = 2;
-  }
+
   Code code = 1;
   string name = 2;
   int32 id = 3;
@@ -40,21 +53,8 @@ message VmRequest {
 }
 
 message StatusVmResponse {
-  enum Code {
-    OK = 0;
-    BAD_TOKEN = 1;
-    NOT_ALLOWED = 2;
-  }
   Code code = 1;
-  enum Status {
-    STOPPED = 0;
-    PREPARED = 1;
-    CREATED = 2;
-    SETUP = 3;
-    RUNNING = 5;
-    ABORTED = 6;
-    DELETED = 7;
-  }
+
   Status status = 2;
   string message = 3;
 }
@@ -64,19 +64,11 @@ message JustTokenRequest {
 }
 
 message ListVmResponse {
-  enum Code {
-    OK = 0;
-    BAD_TOKEN = 1;
-  }
   Code code = 1;
   repeated int32 id = 2;
 }
 
 message FreeResourcesResponse {
-  enum Code {
-    OK = 0;
-    BAD_TOKEN = 1;
-  }
   Code code = 1;
   VmSpecification free = 2;
   VmSpecification total = 3;
