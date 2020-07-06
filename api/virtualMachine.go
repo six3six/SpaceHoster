@@ -70,13 +70,32 @@ func (vm *VirtualMachine) Stop() error {
 	return nil
 }
 
+func (vm *VirtualMachine) Delete() error {
+	if vm.Created() {
+		vmRef, err := GetVmRefById(vm.Id)
+		if err != nil {
+			return fmt.Errorf("Delete vm error : %s", err.Error())
+		}
+		_, err = proxmoxClient.DeleteVm(vmRef)
+		if err != nil {
+			return err
+		}
+	}
+	c := context.Background()
+	virtualMachines := database.Collection("virtualMachines")
+
+	_, _ = virtualMachines.DeleteOne(c, bson.M{"id": vm.Id})
+
+	return nil
+}
+
 func (vm *VirtualMachine) Sync() error {
 	virtualMachines := database.Collection("virtualMachines")
 	_, err := virtualMachines.UpdateOne(context.Background(), bson.M{"id": vm.Id}, bson.M{"$set": vm})
 	return err
 }
 
-func (spec *Specification) CheckSpec() error {
+func (spec *Specification) CheckMinimumResources() error {
 	if spec.Cores < 1 {
 		return fmt.Errorf("Vm must have at least 1 CPU")
 	}

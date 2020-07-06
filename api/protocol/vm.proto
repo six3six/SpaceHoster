@@ -47,6 +47,7 @@ message StatusVmResponse {
     SETUP = 3;
     RUNNING = 5;
     ABORTED = 6;
+    DELETED = 7;
   }
   Status status = 2;
   string message = 3;

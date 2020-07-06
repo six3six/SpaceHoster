@@ -125,7 +125,7 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 	}
 	spec := Specification{int(request.Specification.Core), int(request.Specification.Memory), int(request.Specification.Storage)}
 
-	err = spec.CheckSpec()
+	err = spec.CheckMinimumResources()
 	if err != nil {
 		return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_NOT_ENOUGH_RESOURCES, Name: err.Error(), Id: 0}, nil
 	}
@@ -209,4 +209,31 @@ func (s *VmServer) FreeResources(c context.Context, request *protocol.JustTokenR
 	totalPrt := protocol.VmSpecification{Storage: int32(total.Storage), Memory: int32(total.Memory), Core: int32(total.Cores)}
 
 	return &protocol.FreeResourcesResponse{Code: protocol.FreeResourcesResponse_OK, Free: &freePrt, Total: &totalPrt}, nil
+}
+
+func (*VmServer) Delete(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
+	user, err := CheckToken(request.Token)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_BAD_TOKEN, Status: protocol.StatusVmResponse_ABORTED}, nil
+		} else {
+			return nil, status.Errorf(codes.Aborted, err.Error())
+		}
+	}
+
+	vm, err := GetVirtualMachine(int(request.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+
+	if vm.Owner != user.Login {
+		return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_NOT_ALLOWED, Status: protocol.StatusVmResponse_ABORTED}, nil
+	}
+
+	err = vm.Delete()
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, err.Error())
+	}
+
+	return &protocol.StatusVmResponse{Code: protocol.StatusVmResponse_OK, Status: protocol.StatusVmResponse_DELETED}, nil
 }
