@@ -151,7 +151,7 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
 
-	go VmCreationProcess(vm, string(user.Login), user.EncodedPassword)
+	go VmCreationProcess(vm, string(user.Login), user.EncodedPassword, spec)
 
 	return &protocol.CreateVmResponse{Code: protocol.CreateVmResponse_OK, Name: request.Name, Id: int32(vmId)}, nil
 }

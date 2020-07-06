@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-func VmCreationProcess(vm VirtualMachine, login string, password string) {
+func VmCreationProcess(vm VirtualMachine, login string, password string, specification Specification) {
 	err := CreateVM(vm)
 	if err != nil {
 		vm.Fatal(fmt.Errorf("Create error : %s", err.Error()))
 		return
 	}
 
-	err = SetupVM(vm, login, password)
+	err = SetupVM(vm, login, password, specification)
 	if err != nil {
 		vm.Fatal(fmt.Errorf("Setup error : %s", err.Error()))
 		return
@@ -63,35 +63,22 @@ func CreateVM(vm VirtualMachine) error {
 	return nil
 }
 
-func SetupVM(vm VirtualMachine, login string, password string) error {
-	/*
-		vm.StatusCode = protocol.StatusVmResponse_SETUP
-		err := vm.Sync()
-		if err != nil {
-			return fmt.Errorf("Syncing error : %s", err.Error())
-		}
-		vmRef := proxmox.NewVmRef(vm.Id)
-		err = proxmoxClient.CheckVmRef(vmRef)
-		if err != nil {
-			return fmt.Errorf("Setup vm error : %s", err.Error())
-		}
+func SetupVM(vm VirtualMachine, login string, password string, specification Specification) error {
+	vm.StatusCode = protocol.StatusVmResponse_SETUP
+	err := vm.Sync()
+	if err != nil {
+		return fmt.Errorf("Syncing error : %s", err.Error())
+	}
 
-		param := map[string]interface{}{
-			"ciuser":     login,
-			"cipassword": password,
-			"memory":     vm.Spec.Memory,
-			"cores":      vm.Spec.Cores,
-		}
+	err = vm.EditSpecification(specification)
+	if err != nil {
+		return fmt.Errorf("Setup vm error (spec mod) : %s", err.Error())
+	}
 
-		_, err = proxmoxClient.SetVmConfig(vmRef, param)
-		if err != nil {
-			return fmt.Errorf("Setup vm error : %s", err.Error())
-		}
+	err = vm.EditLogin(login, password)
+	if err != nil {
+		return fmt.Errorf("Setup vm error (login mod) : %s", err.Error())
+	}
 
-		_, err = proxmoxClient.ResizeQemuDisk(vmRef, "scsi0", vm.Spec.Storage-2252)
-		if err != nil {
-			return fmt.Errorf("Resize storage error : %s", err.Error())
-		}
-	*/
 	return nil
 }

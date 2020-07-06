@@ -134,6 +134,25 @@ func (vm *VirtualMachine) EditSpecification(specification Specification) error {
 	return nil
 }
 
+func (vm *VirtualMachine) EditLogin(login string, password string) error {
+
+	vmRef, err := GetVmRefById(vm.Id)
+	if err != nil {
+		return fmt.Errorf("Edit vm error : %s", err.Error())
+	}
+
+	param := map[string]interface{}{
+		"ciuser":     login,
+		"cipassword": password,
+	}
+
+	_, err = proxmoxClient.SetVmConfig(vmRef, param)
+	if err != nil {
+		return fmt.Errorf("Edit vm error : %s", err.Error())
+	}
+	return nil
+}
+
 func (spec *Specification) CheckMinimumResources() error {
 	if spec.Cores < 1 {
 		return fmt.Errorf("Vm must have at least 1 CPU")
