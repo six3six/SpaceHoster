@@ -14,7 +14,7 @@ import (
 type VirtualMachine struct {
 	Name          string
 	Id            int
-	StatusCode    protocol.StatusVmResponse_Status
+	StatusCode    protocol.Status
 	Error         string
 	Owner         Login
 	UseOwnerQuota bool
@@ -40,7 +40,7 @@ func (vm *VirtualMachine) Created() bool {
 }
 
 func (vm *VirtualMachine) Fatal(err error) {
-	vm.StatusCode = protocol.StatusVmResponse_ABORTED
+	vm.StatusCode = protocol.Status_ABORTED
 	vm.Error = err.Error()
 	_ = vm.Sync()
 	log.Printf(err.Error())

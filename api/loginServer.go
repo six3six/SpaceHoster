@@ -83,7 +83,7 @@ func (s *loginServer) Register(c context.Context, request *protocol.RegisterRequ
 		return &protocol.RegisterResponse{Code: protocol.RegisterResponse_INCORRECT_PASSWORD}, nil
 	}
 
-	infos := User{Login(request.Login), string(hashedPassword), request.Email, request.Name, []string{"ADMIN"}, defaultSpecification}
+	infos := User{Login(request.Login), string(hashedPassword), request.Email, request.Name, []string{"ADMIN"}, Specification{2, 2048, 5000}}
 	_, err = logins.InsertOne(c, infos)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, fmt.Sprintf("Cannot register user : %s", err.Error()))
