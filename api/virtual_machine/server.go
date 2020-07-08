@@ -1,8 +1,9 @@
-package main
+package virtual_machine
 
 import (
 	"context"
 	"github.com/Telmate/proxmox-api-go/proxmox"
+	"github.com/six3six/SpaceHoster/api/login"
 	"github.com/six3six/SpaceHoster/api/protocol"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,10 +13,13 @@ import (
 
 type VmServer struct {
 	protocol.UnimplementedVmServiceServer
+	Database     *mongo.Database
+	LoginService *login.Service
+	Proxmox      *proxmox.Client
 }
 
-func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
-	user, err := CheckToken(request.Token)
+func (s *VmServer) Start(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.StatusVmResponse{Code: protocol.Code_BAD_TOKEN, Status: protocol.Status_ABORTED}, nil
@@ -24,7 +28,7 @@ func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protoco
 		}
 	}
 
-	vm, err := GetVirtualMachine(int(request.Id))
+	vm, err := GetVirtualMachine(s.Database, int(request.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -40,8 +44,8 @@ func (*VmServer) Start(c context.Context, request *protocol.VmRequest) (*protoco
 	return &protocol.StatusVmResponse{Status: vm.StatusCode, Code: protocol.Code_OK, Message: vm.Error}, nil
 }
 
-func (*VmServer) Stop(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
-	user, err := CheckToken(request.Token)
+func (s *VmServer) Stop(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.StatusVmResponse{Code: protocol.Code_BAD_TOKEN, Status: protocol.Status_ABORTED}, nil
@@ -50,7 +54,7 @@ func (*VmServer) Stop(c context.Context, request *protocol.VmRequest) (*protocol
 		}
 	}
 
-	vm, err := GetVirtualMachine(int(request.Id))
+	vm, err := GetVirtualMachine(s.Database, int(request.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -67,7 +71,7 @@ func (*VmServer) Stop(c context.Context, request *protocol.VmRequest) (*protocol
 }
 
 func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
-	user, err := CheckToken(request.Token)
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.StatusVmResponse{Code: protocol.Code_BAD_TOKEN, Status: protocol.Status_ABORTED}, nil
@@ -76,7 +80,7 @@ func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*prot
 		}
 	}
 
-	vm, err := GetVirtualMachine(int(request.Id))
+	vm, err := GetVirtualMachine(s.Database, int(request.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -87,11 +91,11 @@ func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*prot
 
 	if vm.StatusCode == protocol.Status_STOPPED || vm.StatusCode == protocol.Status_RUNNING {
 		vmRef := proxmox.NewVmRef(vm.Id)
-		err := proxmoxClient.CheckVmRef(vmRef)
+		err := s.Proxmox.CheckVmRef(vmRef)
 		if err != nil {
 			return nil, status.Errorf(codes.Aborted, err.Error())
 		}
-		state, err := proxmoxClient.GetVmState(vmRef)
+		state, err := s.Proxmox.GetVmState(vmRef)
 		if err != nil {
 			return nil, status.Errorf(codes.Aborted, err.Error())
 		}
@@ -102,7 +106,7 @@ func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*prot
 			vm.StatusCode = protocol.Status_STOPPED
 		}
 
-		err = vm.Sync()
+		err = Sync(s.Database, vm)
 		if err != nil {
 			return nil, status.Errorf(codes.Aborted, err.Error())
 		}
@@ -112,7 +116,7 @@ func (s *VmServer) Status(c context.Context, request *protocol.VmRequest) (*prot
 }
 
 func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) (*protocol.CreateVmResponse, error) {
-	user, err := CheckToken(request.Token)
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.CreateVmResponse{Code: protocol.Code_BAD_TOKEN, Name: "", Id: 0}, nil
@@ -123,7 +127,7 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 	if request.Specification == nil {
 		return nil, status.Errorf(codes.Aborted, "Specification does not exist")
 	}
-	spec := Specification{int(request.Specification.Core), int(request.Specification.Memory), int(request.Specification.Storage)}
+	spec := Specification{Cores: int(request.Specification.Core), Memory: int(request.Specification.Memory), Storage: int(request.Specification.Storage)}
 
 	err = spec.CheckMinimumResources()
 	if err != nil {
@@ -135,29 +139,29 @@ func (s *VmServer) Create(c context.Context, request *protocol.CreateVmRequest) 
 		return &protocol.CreateVmResponse{Code: protocol.Code_NOT_ENOUGH_RESOURCES, Name: err.Error(), Id: 0}, nil
 	}
 
-	vmId, err := proxmoxClient.NextId()
+	vmId, err := s.Proxmox.NextId()
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
 
-	virtualMachines := database.Collection("virtualMachines")
+	virtualMachines := s.Database.Collection("virtualMachines")
 
 	_, _ = virtualMachines.DeleteOne(c, bson.M{"id": vmId})
 
-	vm := VirtualMachine{request.Name, vmId, protocol.Status_PREPARED, "", user.Login, true, []Login{}}
+	vm := VirtualMachine{request.Name, vmId, protocol.Status_PREPARED, "", user.Login, true, []login.Login{}, s.Proxmox}
 
 	_, err = virtualMachines.InsertOne(c, vm)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
 
-	go VmCreationProcess(vm, string(user.Login), user.EncodedPassword, spec)
+	go VmCreationProcess(vm, s.Database, string(user.Login), user.EncodedPassword, spec)
 
 	return &protocol.CreateVmResponse{Code: protocol.Code_OK, Name: request.Name, Id: int32(vmId)}, nil
 }
 
 func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (*protocol.ListVmResponse, error) {
-	user, err := CheckToken(request.Token)
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.ListVmResponse{Code: protocol.Code_BAD_TOKEN, Id: []int32{}}, nil
@@ -165,7 +169,7 @@ func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (
 			return nil, status.Errorf(codes.Aborted, err.Error())
 		}
 	}
-	virtualMachines := database.Collection("virtualMachines")
+	virtualMachines := s.Database.Collection("virtualMachines")
 	vms, err := virtualMachines.Find(c, bson.M{"owner": user.Login})
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
@@ -189,7 +193,7 @@ func (s *VmServer) List(c context.Context, request *protocol.JustTokenRequest) (
 }
 
 func (s *VmServer) FreeResources(c context.Context, request *protocol.JustTokenRequest) (*protocol.FreeResourcesResponse, error) {
-	user, err := CheckToken(request.Token)
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.FreeResourcesResponse{Code: protocol.Code_BAD_TOKEN, Free: nil, Total: nil}, nil
@@ -198,7 +202,7 @@ func (s *VmServer) FreeResources(c context.Context, request *protocol.JustTokenR
 		}
 	}
 
-	free, err := user.GetFreeResources()
+	free, err := GetFreeResources(*user)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -211,8 +215,8 @@ func (s *VmServer) FreeResources(c context.Context, request *protocol.JustTokenR
 	return &protocol.FreeResourcesResponse{Code: protocol.Code_OK, Free: &freePrt, Total: &totalPrt}, nil
 }
 
-func (*VmServer) Delete(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
-	user, err := CheckToken(request.Token)
+func (s *VmServer) Delete(c context.Context, request *protocol.VmRequest) (*protocol.StatusVmResponse, error) {
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.StatusVmResponse{Code: protocol.Code_BAD_TOKEN, Status: protocol.Status_ABORTED}, nil
@@ -221,7 +225,7 @@ func (*VmServer) Delete(c context.Context, request *protocol.VmRequest) (*protoc
 		}
 	}
 
-	vm, err := GetVirtualMachine(int(request.Id))
+	vm, err := GetVirtualMachine(s.Database, int(request.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -230,7 +234,7 @@ func (*VmServer) Delete(c context.Context, request *protocol.VmRequest) (*protoc
 		return &protocol.StatusVmResponse{Code: protocol.Code_NOT_ALLOWED, Status: protocol.Status_ABORTED}, nil
 	}
 
-	err = vm.Delete()
+	err = Delete(s.Proxmox, s.Database, vm)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -238,8 +242,8 @@ func (*VmServer) Delete(c context.Context, request *protocol.VmRequest) (*protoc
 	return &protocol.StatusVmResponse{Code: protocol.Code_OK, Status: protocol.Status_DELETED}, nil
 }
 
-func (*VmServer) Modify(c context.Context, request *protocol.ModifyVmRequest) (*protocol.StatusVmResponse, error) {
-	user, err := CheckToken(request.Token)
+func (s *VmServer) Modify(c context.Context, request *protocol.ModifyVmRequest) (*protocol.StatusVmResponse, error) {
+	user, err := s.LoginService.CheckToken(request.Token)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &protocol.StatusVmResponse{Code: protocol.Code_BAD_TOKEN, Status: protocol.Status_ABORTED, Message: ""}, nil
@@ -248,7 +252,7 @@ func (*VmServer) Modify(c context.Context, request *protocol.ModifyVmRequest) (*
 		}
 	}
 
-	vm, err := GetVirtualMachine(int(request.Id))
+	vm, err := GetVirtualMachine(s.Database, int(request.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
@@ -262,7 +266,7 @@ func (*VmServer) Modify(c context.Context, request *protocol.ModifyVmRequest) (*
 		return nil, status.Errorf(codes.Aborted, err.Error())
 	}
 
-	spec := Specification{int(request.Specification.Core), int(request.Specification.Memory), int(request.Specification.Storage)}
+	spec := Specification{Cores: int(request.Specification.Core), Memory: int(request.Specification.Memory), Storage: int(request.Specification.Storage)}
 	if vm.UseOwnerQuota {
 		err = spec.CheckFreeResourcesWithout(*user, originalSpec)
 		if err != nil {

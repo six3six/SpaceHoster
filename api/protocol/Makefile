@@ -17,13 +17,7 @@ COMPILE := \
 PROTOC = protoc
 
 all:
-	mkdir -p google/api
-	curl https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/annotations.proto > google/api/annotations.proto
-	curl https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/http.proto > google/api/http.proto
-	$(PROTOC) google/api/*.proto $(LIB_FLAGS) $(COMPILE) $(CLIENT_FLAGS) $(GRPC_FLAGS)
-	$(PROTOC) $(LIB_FLAGS) $(GRPC_GW_FLAGS) $(COMPILE)
-	$(PROTOC) $(LIB_FLAGS) $(GRPC_SWAGGER_FLAGS) $(COMPILE)
-
+	$(PROTOC) $(LIB_FLAGS) $(COMPILE) $(CLIENT_FLAGS) $(GRPC_FLAGS)
 
 clean:
 	rm google -rf

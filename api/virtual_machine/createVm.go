@@ -1,39 +1,40 @@
-package main
+package virtual_machine
 
 import (
 	"fmt"
 	"github.com/six3six/SpaceHoster/api/protocol"
+	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"time"
 )
 
-func VmCreationProcess(vm VirtualMachine, login string, password string, specification Specification) {
-	err := CreateVM(vm)
+func VmCreationProcess(vm VirtualMachine, database *mongo.Database, login string, password string, specification Specification) {
+	err := CreateVM(vm, database)
 	if err != nil {
-		vm.Fatal(fmt.Errorf("Create error : %s", err.Error()))
+		vm.Fatal(database, fmt.Errorf("Create error : %s", err.Error()))
 		return
 	}
 
-	err = SetupVM(vm, login, password, specification)
+	err = SetupVM(vm, login, password, specification, database)
 	if err != nil {
-		vm.Fatal(fmt.Errorf("Setup error : %s", err.Error()))
+		vm.Fatal(database, fmt.Errorf("Setup error : %s", err.Error()))
 		return
 	}
 	vm.StatusCode = protocol.Status_STOPPED
-	err = vm.Sync()
+	err = Sync(database, vm)
 	if err != nil {
-		vm.Fatal(fmt.Errorf("VmCreationProcess : %s", err.Error()))
+		vm.Fatal(database, fmt.Errorf("VmCreationProcess : %s", err.Error()))
 		return
 	}
 }
 
-func CreateVM(vm VirtualMachine) error {
+func CreateVM(vm VirtualMachine, database *mongo.Database) error {
 	vm.StatusCode = protocol.Status_CREATED
-	err := vm.Sync()
+	err := Sync(database, vm)
 	if err != nil {
 		return err
 	}
-	vmParent, err := proxmoxClient.GetVmRefByName("VM 9000")
+	vmParent, err := vm.Proxmox.GetVmRefByName("VM 9000")
 	if err != nil {
 		return err
 	}
@@ -45,7 +46,7 @@ func CreateVM(vm VirtualMachine) error {
 		"full":   false,
 	}
 
-	_, err = proxmoxClient.CloneQemuVm(vmParent, cloneParams)
+	_, err = vm.Proxmox.CloneQemuVm(vmParent, cloneParams)
 	if err != nil {
 		return err
 	}
@@ -63,9 +64,9 @@ func CreateVM(vm VirtualMachine) error {
 	return nil
 }
 
-func SetupVM(vm VirtualMachine, login string, password string, specification Specification) error {
+func SetupVM(vm VirtualMachine, login string, password string, specification Specification, database *mongo.Database) error {
 	vm.StatusCode = protocol.Status_SETUP
-	err := vm.Sync()
+	err := Sync(database, vm)
 	if err != nil {
 		return fmt.Errorf("Syncing error : %s", err.Error())
 	}

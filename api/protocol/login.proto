@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package protocol;
 option go_package = "github.com/six3six/SpaceHoster/protocol";
-import "google/api/annotations.proto";
 
 message LoginRequest {
   string login = 1;
@@ -42,21 +41,9 @@ message Token {
 
 service LoginService {
   rpc Login(LoginRequest) returns (LoginResponse) {
-    option (google.api.http) = {
-      post: "/v1/login"
-      body: "*"
-    };
   };
   rpc Register(RegisterRequest) returns (RegisterResponse) {
-    option (google.api.http) = {
-      post: "/v1/register"
-      body: "*"
-    };
   };
   rpc Logout(Token) returns (Token) {
-    option (google.api.http) = {
-      post: "/v1/logout"
-      body: "*"
-    };
   };
 }

@@ -3,7 +3,6 @@ syntax = "proto3";
 package protocol;
 option go_package = "github.com/six3six/SpaceHoster/protocol";
 
-import "google/api/annotations.proto";
 
 enum Status {
   STOPPED = 0;
@@ -78,57 +77,21 @@ message FreeResourcesResponse {
 
 service VmService {
   rpc Create(CreateVmRequest) returns (CreateVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/create"
-      body: "*"
-    };
   };
   rpc Start(VmRequest) returns (StatusVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/start"
-      body: "*"
-    };
   };
   rpc Stop(VmRequest) returns (StatusVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/stop"
-      body: "*"
-    };
   };
   rpc Restart(VmRequest) returns (StatusVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/restart"
-      body: "*"
-    };
   };
   rpc Modify(ModifyVmRequest) returns (StatusVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/modify"
-      body: "*"
-    };
   };
   rpc Delete(VmRequest) returns (StatusVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/delete"
-      body: "*"
-    };
   };
   rpc Status(VmRequest) returns (StatusVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/status"
-      body: "*"
-    };
   };
   rpc List(JustTokenRequest) returns (ListVmResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/list"
-      body: "*"
-    };
   };
   rpc FreeResources(JustTokenRequest) returns (FreeResourcesResponse) {
-    option (google.api.http) = {
-      post: "/v1/vm/free"
-      body: "*"
-    };
   };
 }
